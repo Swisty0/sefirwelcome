@@ -1,4 +1,4 @@
-require('dotenv').config(); // .env dosyasını aktif eder
+require('dotenv').config();
 
 const { 
   Client, 
@@ -8,6 +8,7 @@ const {
   ButtonBuilder, 
   ButtonStyle 
 } = require('discord.js');
+const { joinVoiceChannel, VoiceConnectionStatus, getVoiceConnection } = require('@discordjs/voice');
 const http = require('http');
 
 // Render uyku modunu önlemek için basit web sunucusu
@@ -27,7 +28,7 @@ const client = new Client({
   ]
 });
 
-// ================= KONFİGÜRASYON (.env dosyasından çekilir) =================
+// ================= KONFİGÜRASYON =================
 const CONFIG = {
   TOKEN: process.env.TOKEN,
   WELCOME_CHANNEL_ID: process.env.WELCOME_CHANNEL_ID,
@@ -38,6 +39,10 @@ const CONFIG = {
   REGISTERED_ROLE_ID: process.env.REGISTERED_ROLE_ID, 
   FEMALE_ROLE_ID: process.env.FEMALE_ROLE_ID 
 };
+
+client.once('ready', () => {
+  console.log(`Bot başarıyla giriş yaptı: ${client.user.tag}`);
+});
 
 // ================= 1. YENİ ÜYE KATILIMI =================
 client.on('guildMemberAdd', async (member) => {
@@ -87,16 +92,53 @@ client.on('guildMemberAdd', async (member) => {
   });
 });
 
-// ================= 2. KAYIT SİSTEMİ KOMUTU (.k ID İsim Yaş Cinsiyet) =================
+// ================= 2. KOMUTLAR (.k ve .sesegir) =================
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
 
-  if (message.content.startsWith('.k')) {
-    const hasRole = message.member.roles.cache.some(r => CONFIG.AUTHORIZED_ROLE_IDS.includes(r.id));
-    if (!hasRole && !message.member.permissions.has('Administrator')) {
-      return message.reply('❌ Bu komutu yalnızca yetkililer kullanabilir!');
+  const hasRole = message.member.roles.cache.some(r => CONFIG.AUTHORIZED_ROLE_IDS.includes(r.id));
+  const isAdmin = message.member.permissions.has('Administrator');
+
+  if (!hasRole && !isAdmin) return;
+
+  // A) BOTU SESE SOKMA KOMUTU: .sesegir <Kanal_ID>
+  if (message.content.startsWith('.sesegir')) {
+    const args = message.content.split(' ').slice(1);
+    const channelId = args[0];
+
+    if (!channelId) {
+      return message.reply('⚠️ Lütfen botu sokmak istediğiniz ses kanalının ID sini yazın! Örnek: `.sesegir 1565733707367719133`');
     }
 
+    const voiceChannel = message.guild.channels.cache.get(channelId);
+    if (!voiceChannel || !voiceChannel.isVoiceBased()) {
+      return message.reply('❌ Belirtilen ID ye sahip geçerli bir ses kanalı bulunamadı!');
+    }
+
+    try {
+      // Önce varsa eski bağlantıyı kopar
+      const existingConnection = getVoiceConnection(message.guild.id);
+      if (existingConnection) {
+        existingConnection.destroy();
+      }
+
+      // Yeni kanala bağlan
+      joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: message.guild.id,
+        adapterCreator: message.guild.voiceAdapterCreator,
+        selfDeaf: true
+      });
+
+      return message.reply(`✅ Bot başarıyla <#${voiceChannel.id}> ses kanalına giriş yaptı!`);
+    } catch (error) {
+      console.error(error);
+      return message.reply('❌ Ses kanalına bağlanırken bir hata oluştu!');
+    }
+  }
+
+  // B) KAYIT SİSTEMİ KOMUTU: .k <ID/Etiket> <İsim> <Yaş> <e/k>
+  if (message.content.startsWith('.k')) {
     const args = message.content.split(' ').slice(1);
     if (args.length < 3) {
       return message.reply('⚠️ Eksik argüman! Örnek: `.k @Kullanici Yiğit 18 e` veya `.k @Kullanici Zeynep 19 k`');
@@ -110,9 +152,7 @@ client.on('messageCreate', async (message) => {
       return message.reply('❌ Belirtilen sunucuda bu ID/etikete sahip üye bulunamadı!');
     }
 
-    // ID kısmı atılarak temiz argümanlar alınıyor ([İsim, Yaş, Cinsiyet])
     const cleanArgs = args.slice(1);
-
     const genderArg = cleanArgs.pop().toLowerCase(); 
     const ageArg = cleanArgs.pop(); 
     const nameArg = cleanArgs.join(' '); 
@@ -211,12 +251,13 @@ client.on('interactionCreate', async (interaction) => {
 
     let isBannedBefore = 'Hayır / Kayıt Yok';
     try {
-      const banInfo = await interaction.guild.bans.fetch(targetUser.id).catch(() => null);
-      if (banInfo) {
-        isBannedBefore = `Evet (Sebep: ${banInfo.reason || 'Belirtilmemiş'})`;
+      const banInfo = `Evet (Sebep: ${banInfo.reason || 'Belirtilmemiş'})`;
+      const fetchedBan = await interaction.guild.bans.fetch(targetUser.id).catch(() => null);
+      if (fetchedBan) {
+        isBannedBefore = `Evet (Sebep: ${fetchedBan.reason || 'Belirtilmemiş'})`;
       }
     } catch (err) {
-      isBannedBefore = 'Sorgulanamadı';
+      isBannedBefore = 'Hayır / Kayıt Yok';
     }
 
     const createdTimestamp = Math.floor(targetUser.createdTimestamp / 1000);
