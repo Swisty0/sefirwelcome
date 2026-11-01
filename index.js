@@ -1,4 +1,4 @@
-require('dotenv').config(); // .env dosyasını yükler
+require('dotenv').config(); // .env dosyasını aktif eder
 
 const { 
   Client, 
@@ -10,7 +10,7 @@ const {
 } = require('discord.js');
 const http = require('http');
 
-// Render / Uptime sistemleri için HTTP port dinleyicisi
+// Render uyku modunu önlemek için basit web sunucusu
 http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Bot aktif ve calisiyor!\n');
@@ -110,9 +110,12 @@ client.on('messageCreate', async (message) => {
       return message.reply('❌ Belirtilen sunucuda bu ID/etikete sahip üye bulunamadı!');
     }
 
-    const genderArg = args.pop().toLowerCase(); 
-    const ageArg = args.pop(); 
-    const nameArg = args.join(' '); 
+    // ID kısmı atılarak temiz argümanlar alınıyor ([İsim, Yaş, Cinsiyet])
+    const cleanArgs = args.slice(1);
+
+    const genderArg = cleanArgs.pop().toLowerCase(); 
+    const ageArg = cleanArgs.pop(); 
+    const nameArg = cleanArgs.join(' '); 
 
     if (!ageArg || isNaN(ageArg)) {
       return message.reply('⚠️ Lütfen geçerli bir yaş belirtin!');
