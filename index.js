@@ -57,7 +57,7 @@ client.on('guildMemberAdd', async (member) => {
   const createdAtFormatted = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:f>`;
 
   const welcomeContent = 
-`**T E K S A S** <a:safir_tag_beyaz:1565730491968135279>
+`**${member.guild.name}** <a:safir_tag_beyaz:1565730491968135279>
 
 <a:safir_rgb_ok:1565730369683193866> Merhabalar ${member}, **${member.guild.name}** sunucumuza hoşgeldin. Seninle beraber sunucumuz **${totalMembers}** üye sayısına ulaştı. 
 
@@ -137,11 +137,11 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // B) KAYIT SİSTEMİ KOMUTU: .k <ID/Etiket> <İsim> <Yaş> <e/k>
+  // B) KAYIT SİSTEMİ KOMUTU: .k <ID/Etiket> <İsim> <Yaş>
   if (message.content.startsWith('.k')) {
     const args = message.content.split(' ').slice(1);
     if (args.length < 3) {
-      return message.reply('⚠️ Eksik argüman! Örnek: `.k @Kullanici Yiğit 18 e` veya `.k @Kullanici Zeynep 19 k`');
+      return message.reply('⚠️ Eksik argüman! Örnek: `.k 123456789012345678 Yiğit 18` veya `.k @Kullanici Yiğit 18`');
     }
 
     const targetInput = args[0];
@@ -153,25 +153,36 @@ client.on('messageCreate', async (message) => {
     }
 
     const cleanArgs = args.slice(1);
-    const genderArg = cleanArgs.pop().toLowerCase(); 
-    const ageArg = cleanArgs.pop(); 
-    const nameArg = cleanArgs.join(' '); 
-
-    if (!ageArg || isNaN(ageArg)) {
-      return message.reply('⚠️ Lütfen geçerli bir yaş belirtin!');
-    }
-
-    let genderText = '';
+    
+    // Son argüman yaş mı kontrol et
+    const lastArg = cleanArgs[cleanArgs.length - 1];
+    let ageArg = '';
+    let nameArgs = [];
+    let genderText = 'Kayıt Edildi';
     let isFemale = false;
 
-    if (['e', 'erkek', 'bey'].includes(genderArg)) {
-      genderText = 'Erkek';
-      isFemale = false;
-    } else if (['k', 'kadın', 'bayan', 'kiz', 'kız'].includes(genderArg)) {
-      genderText = 'Kadın';
-      isFemale = true;
+    if (!isNaN(lastArg)) {
+      ageArg = cleanArgs.pop();
+      nameArgs = cleanArgs;
     } else {
-      return message.reply('⚠️ Cinsiyeti yanlış girdiniz! Komutun sonuna **e** (Erkek) veya **k** (Kadın) yazmalısınız.');
+      // Eğer en son argüman e/k (cinsiyet) ise
+      const genderArg = cleanArgs.pop().toLowerCase();
+      ageArg = cleanArgs.pop();
+      nameArgs = cleanArgs;
+
+      if (['e', 'erkek', 'bey'].includes(genderArg)) {
+        genderText = 'Erkek';
+        isFemale = false;
+      } else if (['k', 'kadın', 'bayan', 'kiz', 'kız'].includes(genderArg)) {
+        genderText = 'Kadın';
+        isFemale = true;
+      }
+    }
+
+    const nameArg = nameArgs.join(' ');
+
+    if (!ageArg || isNaN(ageArg) || !nameArg) {
+      return message.reply('⚠️ Lütfen geçerli bir isim ve yaş belirtin! Örnek: `.k 123456789 Yiğit 18`');
     }
 
     const newNickname = `${nameArg} | ${ageArg}`;
@@ -207,7 +218,8 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
 
   const customId = interaction.customId;
-  const targetUserId = customId.split('_')[2];
+  const parts = customId.split('_');
+  const targetUserId = parts[parts.length - 1];
 
   if (customId.startsWith('call_staff_')) {
     const member = interaction.member;
@@ -251,7 +263,6 @@ client.on('interactionCreate', async (interaction) => {
 
     let isBannedBefore = 'Hayır / Kayıt Yok';
     try {
-      const banInfo = `Evet (Sebep: ${banInfo.reason || 'Belirtilmemiş'})`;
       const fetchedBan = await interaction.guild.bans.fetch(targetUser.id).catch(() => null);
       if (fetchedBan) {
         isBannedBefore = `Evet (Sebep: ${fetchedBan.reason || 'Belirtilmemiş'})`;
@@ -268,7 +279,7 @@ client.on('interactionCreate', async (interaction) => {
       .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
       .addFields(
         { name: '🆔 ID', value: `\`${targetUser.id}\``, inline: true },
-        { name: '📅 Birlikte Katılım / Hesap Açılış', value: `<t:${createdTimestamp}:R> (<t:${createdTimestamp}:F>)`, inline: false },
+        { name: '📅 Hesap Açılış', value: `<t:${createdTimestamp}:R> (<t:${createdTimestamp}:F>)`, inline: false },
         { name: '🚫 Sunucuda Banlı mı?', value: `${isBannedBefore}`, inline: false }
       )
       .setFooter({ text: `${interaction.guild.name} Güvenlik Sistemi`, iconURL: interaction.guild.iconURL() })
