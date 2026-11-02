@@ -57,7 +57,7 @@ client.on('guildMemberAdd', async (member) => {
   const createdAtFormatted = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:f>`;
 
   const welcomeContent = 
-`**S E F İ R** <a:safir_tag_beyaz:1565730491968135279>
+`**T E K S A S** <a:safir_tag_beyaz:1565730491968135279>
 
 <a:safir_rgb_ok:1565730369683193866> Merhabalar ${member}, **${member.guild.name}** sunucumuza hoşgeldin. Seninle beraber sunucumuz **${totalMembers}** üye sayısına ulaştı. 
 
